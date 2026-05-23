@@ -7,33 +7,63 @@ const MAP_SIZE = 760;
 const CENTER = MAP_SIZE / 2;
 
 const ringRadius: Record<EcosystemNode["ring"], number> = {
-  1: 115,
-  2: 205,
-  3: 295,
-  4: 355,
+  1: 105,
+  2: 185,
+  3: 270,
+  4: 345,
 };
 
 type PositionedNode = EcosystemNode & {
   x: number;
   y: number;
+  computedAngle: number;
 };
 
-function getNodePosition(node: EcosystemNode): PositionedNode {
-  const radius = ringRadius[node.ring];
-  const radian = (node.angle * Math.PI) / 180;
-
-  return {
-    ...node,
-    x: CENTER + Math.cos(radian) * radius,
-    y: CENTER + Math.sin(radian) * radius,
+function createCircularLayout(nodes: EcosystemNode[]): PositionedNode[] {
+  const groups = {
+    1: nodes.filter((node) => node.ring === 1),
+    2: nodes.filter((node) => node.ring === 2),
+    3: nodes.filter((node) => node.ring === 3),
+    4: nodes.filter((node) => node.ring === 4),
   };
+
+  return nodes.map((node) => {
+    const radius = ringRadius[node.ring];
+
+    let angle = node.angle;
+
+    // Inner rings can keep custom placement.
+    // Outer rings become true circular carousel rings.
+    if (node.ring === 3 || node.ring === 4) {
+      const ringNodes = groups[node.ring];
+      const index = ringNodes.findIndex((item) => item.id === node.id);
+      const count = ringNodes.length;
+
+      const startAngle = node.ring === 3 ? -82 : -95;
+      const offset = node.ring === 3 ? 360 / count / 2 : 0;
+
+      angle = startAngle + offset + (360 / count) * index;
+    }
+
+    const radian = (angle * Math.PI) / 180;
+
+    return {
+      ...node,
+      computedAngle: angle,
+      x: CENTER + Math.cos(radian) * radius,
+      y: CENTER + Math.sin(radian) * radius,
+    };
+  });
 }
 
 export default function EcosystemMap() {
   const [hoveredNode, setHoveredNode] = useState<EcosystemNode | null>(null);
   const [isPaused, setIsPaused] = useState(false);
 
-  const positionedNodes = useMemo(() => ecosystemNodes.map(getNodePosition), []);
+  const positionedNodes = useMemo(
+    () => createCircularLayout(ecosystemNodes),
+    []
+  );
 
   const innerNodes = positionedNodes.filter((node) => node.ring <= 2);
 
@@ -42,21 +72,39 @@ export default function EcosystemMap() {
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.045)_1px,transparent_1px)] bg-[size:32px_32px]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(239,68,68,0.16),transparent_36%)]" />
 
-      <div className="absolute left-6 top-6 z-30">
-        <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
-          Ecosystem
-        </p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-          Avalanche Network Map
-        </h1>
-      </div>
-
       <div className="ecosystem-frame" data-paused={isPaused}>
         <div className="orbit-rotator">
           <svg
             className="pointer-events-none absolute inset-0 h-full w-full"
             viewBox={`0 0 ${MAP_SIZE} ${MAP_SIZE}`}
           >
+            {/* Real circular orbit tracks */}
+            <circle
+              cx={CENTER}
+              cy={CENTER}
+              r={ringRadius[1]}
+              className="orbit-track orbit-track-one"
+            />
+            <circle
+              cx={CENTER}
+              cy={CENTER}
+              r={ringRadius[2]}
+              className="orbit-track orbit-track-two"
+            />
+            <circle
+              cx={CENTER}
+              cy={CENTER}
+              r={ringRadius[3]}
+              className="orbit-track orbit-track-three"
+            />
+            <circle
+              cx={CENTER}
+              cy={CENTER}
+              r={ringRadius[4]}
+              className="orbit-track orbit-track-four"
+            />
+
+            {/* Center connection lines */}
             {innerNodes.map((node) => (
               <line
                 key={`${node.id}-line`}
@@ -65,11 +113,12 @@ export default function EcosystemMap() {
                 x2={node.x}
                 y2={node.y}
                 stroke={node.color}
-                strokeOpacity="0.2"
+                strokeOpacity="0.22"
                 strokeWidth="1.3"
               />
             ))}
 
+            {/* Moving colorful dots */}
             {innerNodes.map((node, index) => (
               <g key={`${node.id}-particles`}>
                 <circle r="4" fill={node.color} opacity="0.95">
@@ -129,7 +178,7 @@ export default function EcosystemMap() {
               <button
                 key={node.id}
                 type="button"
-                className="ecosystem-node"
+                className={`ecosystem-node ring-${node.ring}`}
                 style={style}
                 onMouseEnter={() => {
                   setHoveredNode(node);
@@ -148,6 +197,7 @@ export default function EcosystemMap() {
                   <span className="node-glow" />
                   <span className="node-ring node-ring-one" />
                   <span className="node-ring node-ring-two" />
+                  <span className="node-ring node-ring-three" />
 
                   <span className="node-logo">
                     {node.logo ? (
@@ -221,12 +271,35 @@ export default function EcosystemMap() {
           position: absolute;
           inset: 0;
           transform-origin: center;
-          animation: ecosystem-spin 58s linear infinite;
+          animation: ecosystem-spin 64s linear infinite;
         }
 
         .ecosystem-frame[data-paused="true"] .orbit-rotator,
         .ecosystem-frame[data-paused="true"] .node-counter {
           animation-play-state: paused;
+        }
+
+        .orbit-track {
+          fill: none;
+          stroke: rgba(255, 255, 255, 0.06);
+          stroke-width: 1;
+          stroke-dasharray: 2 10;
+        }
+
+        .orbit-track-one {
+          stroke: rgba(239, 68, 68, 0.16);
+        }
+
+        .orbit-track-two {
+          stroke: rgba(255, 255, 255, 0.08);
+        }
+
+        .orbit-track-three {
+          stroke: rgba(255, 255, 255, 0.065);
+        }
+
+        .orbit-track-four {
+          stroke: rgba(255, 255, 255, 0.055);
         }
 
         .ecosystem-node {
@@ -242,22 +315,38 @@ export default function EcosystemMap() {
           overflow: visible;
         }
 
+        .ring-4 {
+          z-index: 7;
+        }
+
+        .ring-3 {
+          z-index: 8;
+        }
+
+        .ring-2 {
+          z-index: 12;
+        }
+
+        .ring-1 {
+          z-index: 14;
+        }
+
         .node-counter {
           position: relative;
           display: block;
           width: 100%;
           height: 100%;
           transform-origin: center;
-          animation: ecosystem-counter-spin 58s linear infinite;
+          animation: ecosystem-counter-spin 64s linear infinite;
         }
 
         .node-glow {
           position: absolute;
-          inset: -22px;
+          inset: -20px;
           border-radius: 999px;
           background: var(--node-color);
-          opacity: 0.24;
-          filter: blur(18px);
+          opacity: 0.2;
+          filter: blur(17px);
         }
 
         .node-ripple {
@@ -266,8 +355,8 @@ export default function EcosystemMap() {
           border-radius: 999px;
           border: 2px solid var(--node-color);
           opacity: 0;
-          transform: scale(0.85);
-          animation: node-water-wave 2.6s ease-out infinite;
+          transform: scale(0.82);
+          animation: node-water-wave 2.8s ease-out infinite;
         }
 
         .node-ripple-two {
@@ -282,16 +371,21 @@ export default function EcosystemMap() {
           position: absolute;
           border-radius: 999px;
           border: 2px solid var(--node-color);
-          opacity: 0.52;
         }
 
         .node-ring-one {
-          inset: -9px;
+          inset: -8px;
+          opacity: 0.55;
         }
 
         .node-ring-two {
-          inset: -17px;
-          opacity: 0.28;
+          inset: -15px;
+          opacity: 0.34;
+        }
+
+        .node-ring-three {
+          inset: -22px;
+          opacity: 0.16;
         }
 
         .node-logo {
@@ -304,11 +398,17 @@ export default function EcosystemMap() {
           border-radius: 999px;
           border: 2px solid rgba(255, 255, 255, 0.72);
           background: var(--node-color);
-          box-shadow: 0 0 24px rgba(255, 255, 255, 0.16);
+          box-shadow: 0 0 22px color-mix(in srgb, var(--node-color), transparent 45%);
           color: white;
           font-size: calc(var(--node-size) * 0.46);
           font-weight: 800;
           line-height: 1;
+        }
+
+        .ring-4 .node-logo,
+        .ring-4 .node-ring,
+        .ring-4 .node-ripple {
+          transform: scale(0.92);
         }
 
         .node-label {
@@ -319,11 +419,16 @@ export default function EcosystemMap() {
           max-width: 135px;
           transform: translateX(-50%);
           color: rgba(255, 255, 255, 0.9);
-          font-size: 11px;
+          font-size: 10.5px;
           line-height: 1.15;
           text-align: center;
           text-shadow: 0 1px 8px rgba(0, 0, 0, 0.95);
           white-space: normal;
+        }
+
+        .ring-4 .node-label {
+          font-size: 9.5px;
+          color: rgba(255, 255, 255, 0.82);
         }
 
         .node-tooltip {
@@ -458,15 +563,15 @@ export default function EcosystemMap() {
 
         @keyframes node-water-wave {
           0% {
-            opacity: 0.55;
-            transform: scale(0.78);
+            opacity: 0.58;
+            transform: scale(0.72);
           }
           70% {
-            opacity: 0.14;
+            opacity: 0.16;
           }
           100% {
             opacity: 0;
-            transform: scale(1.85);
+            transform: scale(1.88);
           }
         }
 
@@ -506,6 +611,10 @@ export default function EcosystemMap() {
         }
 
         @media (max-width: 640px) {
+          .ecosystem-frame {
+            width: 96vmin;
+          }
+
           .center-node {
             width: 74px;
             height: 74px;
@@ -516,7 +625,7 @@ export default function EcosystemMap() {
           }
 
           .node-label {
-            font-size: 9px;
+            font-size: 8.5px;
           }
         }
       `}</style>
