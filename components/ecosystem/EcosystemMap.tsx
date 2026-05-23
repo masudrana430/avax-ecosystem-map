@@ -33,10 +33,9 @@ export default function EcosystemMap() {
   const [hoveredNode, setHoveredNode] = useState<EcosystemNode | null>(null);
   const [isPaused, setIsPaused] = useState(false);
 
-  const positionedNodes = useMemo(
-    () => ecosystemNodes.map(getNodePosition),
-    []
-  );
+  const positionedNodes = useMemo(() => ecosystemNodes.map(getNodePosition), []);
+
+  const innerNodes = positionedNodes.filter((node) => node.ring <= 2);
 
   return (
     <section className="relative h-screen w-full overflow-hidden bg-[#050505] text-white">
@@ -52,42 +51,70 @@ export default function EcosystemMap() {
         </h1>
       </div>
 
-      <div
-        className="ecosystem-frame"
-        data-paused={isPaused}
-      >
+      <div className="ecosystem-frame" data-paused={isPaused}>
         <div className="orbit-rotator">
           <svg
             className="pointer-events-none absolute inset-0 h-full w-full"
             viewBox={`0 0 ${MAP_SIZE} ${MAP_SIZE}`}
           >
-            {positionedNodes
-              .filter((node) => node.ring <= 2)
-              .map((node) => (
-                <line
-                  key={node.id}
-                  x1={CENTER}
-                  y1={CENTER}
-                  x2={node.x}
-                  y2={node.y}
-                  stroke={node.color}
-                  strokeOpacity="0.22"
-                  strokeWidth="1.3"
-                />
-              ))}
+            {innerNodes.map((node) => (
+              <line
+                key={`${node.id}-line`}
+                x1={CENTER}
+                y1={CENTER}
+                x2={node.x}
+                y2={node.y}
+                stroke={node.color}
+                strokeOpacity="0.2"
+                strokeWidth="1.3"
+              />
+            ))}
 
-            {positionedNodes
-              .filter((node) => node.ring <= 2)
-              .map((node) => (
-                <circle
-                  key={`${node.id}-particle`}
-                  cx={(CENTER + node.x) / 2}
-                  cy={(CENTER + node.y) / 2}
-                  r="4"
-                  fill={node.color}
-                  opacity="0.85"
-                />
-              ))}
+            {innerNodes.map((node, index) => (
+              <g key={`${node.id}-particles`}>
+                <circle r="4" fill={node.color} opacity="0.95">
+                  <animate
+                    attributeName="cx"
+                    values={`${CENTER};${node.x};${CENTER}`}
+                    dur={`${3.4 + (index % 4) * 0.35}s`}
+                    repeatCount="indefinite"
+                  />
+                  <animate
+                    attributeName="cy"
+                    values={`${CENTER};${node.y};${CENTER}`}
+                    dur={`${3.4 + (index % 4) * 0.35}s`}
+                    repeatCount="indefinite"
+                  />
+                  <animate
+                    attributeName="opacity"
+                    values="0;1;0"
+                    dur={`${3.4 + (index % 4) * 0.35}s`}
+                    repeatCount="indefinite"
+                  />
+                </circle>
+
+                <circle r="2.6" fill={node.color} opacity="0.75">
+                  <animate
+                    attributeName="cx"
+                    values={`${node.x};${CENTER};${node.x}`}
+                    dur={`${4.2 + (index % 5) * 0.3}s`}
+                    repeatCount="indefinite"
+                  />
+                  <animate
+                    attributeName="cy"
+                    values={`${node.y};${CENTER};${node.y}`}
+                    dur={`${4.2 + (index % 5) * 0.3}s`}
+                    repeatCount="indefinite"
+                  />
+                  <animate
+                    attributeName="opacity"
+                    values="0;0.8;0"
+                    dur={`${4.2 + (index % 5) * 0.3}s`}
+                    repeatCount="indefinite"
+                  />
+                </circle>
+              </g>
+            ))}
           </svg>
 
           {positionedNodes.map((node) => {
@@ -114,6 +141,10 @@ export default function EcosystemMap() {
                 }}
               >
                 <span className="node-counter">
+                  <span className="node-ripple node-ripple-one" />
+                  <span className="node-ripple node-ripple-two" />
+                  <span className="node-ripple node-ripple-three" />
+
                   <span className="node-glow" />
                   <span className="node-ring node-ring-one" />
                   <span className="node-ring node-ring-two" />
@@ -144,16 +175,26 @@ export default function EcosystemMap() {
           })}
         </div>
 
-        <div className="center-node">
-          <div className="center-glow" />
-          <div className="center-ring center-ring-one" />
-          <div className="center-ring center-ring-two" />
-          <div className="center-ring center-ring-three" />
+        <button
+          type="button"
+          className="center-node"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+        >
+          <span className="center-glow" />
 
-          <div className="center-logo">
+          <span className="center-ripple center-ripple-one" />
+          <span className="center-ripple center-ripple-two" />
+          <span className="center-ripple center-ripple-three" />
+
+          <span className="center-ring center-ring-one" />
+          <span className="center-ring center-ring-two" />
+          <span className="center-ring center-ring-three" />
+
+          <span className="center-logo">
             <span>A</span>
-          </div>
-        </div>
+          </span>
+        </button>
       </div>
 
       <div className="absolute bottom-8 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3">
@@ -215,8 +256,26 @@ export default function EcosystemMap() {
           inset: -22px;
           border-radius: 999px;
           background: var(--node-color);
-          opacity: 0.26;
+          opacity: 0.24;
           filter: blur(18px);
+        }
+
+        .node-ripple {
+          position: absolute;
+          inset: -8px;
+          border-radius: 999px;
+          border: 2px solid var(--node-color);
+          opacity: 0;
+          transform: scale(0.85);
+          animation: node-water-wave 2.6s ease-out infinite;
+        }
+
+        .node-ripple-two {
+          animation-delay: 0.75s;
+        }
+
+        .node-ripple-three {
+          animation-delay: 1.5s;
         }
 
         .node-ring {
@@ -245,7 +304,7 @@ export default function EcosystemMap() {
           border-radius: 999px;
           border: 2px solid rgba(255, 255, 255, 0.72);
           background: var(--node-color);
-          box-shadow: 0 0 22px color-mix(in srgb, var(--node-color), transparent 30%);
+          box-shadow: 0 0 24px rgba(255, 255, 255, 0.16);
           color: white;
           font-size: calc(var(--node-size) * 0.46);
           font-weight: 800;
@@ -257,7 +316,7 @@ export default function EcosystemMap() {
           left: 50%;
           top: calc(100% + 9px);
           width: max-content;
-          max-width: 130px;
+          max-width: 135px;
           transform: translateX(-50%);
           color: rgba(255, 255, 255, 0.9);
           font-size: 11px;
@@ -270,7 +329,7 @@ export default function EcosystemMap() {
         .node-tooltip {
           position: absolute;
           left: 50%;
-          bottom: calc(100% + 16px);
+          bottom: calc(100% + 18px);
           z-index: 50;
           display: grid;
           min-width: 150px;
@@ -301,20 +360,41 @@ export default function EcosystemMap() {
           position: absolute;
           left: 50%;
           top: 50%;
-          z-index: 20;
+          z-index: 30;
           width: 92px;
           height: 92px;
           transform: translate(-50%, -50%);
+          border: 0;
           border-radius: 999px;
+          background: transparent;
+          padding: 0;
+          cursor: pointer;
         }
 
         .center-glow {
           position: absolute;
-          inset: -34px;
+          inset: -36px;
           border-radius: 999px;
           background: #ef4444;
           opacity: 0.34;
           filter: blur(24px);
+        }
+
+        .center-ripple {
+          position: absolute;
+          inset: -12px;
+          border-radius: 999px;
+          border: 2px solid #ef4444;
+          opacity: 0;
+          animation: center-water-wave 2.4s ease-out infinite;
+        }
+
+        .center-ripple-two {
+          animation-delay: 0.7s;
+        }
+
+        .center-ripple-three {
+          animation-delay: 1.4s;
         }
 
         .center-ring {
@@ -348,6 +428,7 @@ export default function EcosystemMap() {
           border-radius: 999px;
           background: #ef4444;
           box-shadow: 0 0 45px rgba(239, 68, 68, 0.6);
+          animation: center-heartbeat 1.25s ease-in-out infinite;
         }
 
         .center-logo span {
@@ -372,6 +453,55 @@ export default function EcosystemMap() {
           }
           to {
             transform: rotate(-360deg);
+          }
+        }
+
+        @keyframes node-water-wave {
+          0% {
+            opacity: 0.55;
+            transform: scale(0.78);
+          }
+          70% {
+            opacity: 0.14;
+          }
+          100% {
+            opacity: 0;
+            transform: scale(1.85);
+          }
+        }
+
+        @keyframes center-water-wave {
+          0% {
+            opacity: 0.75;
+            transform: scale(0.82);
+          }
+          72% {
+            opacity: 0.18;
+          }
+          100% {
+            opacity: 0;
+            transform: scale(1.95);
+          }
+        }
+
+        @keyframes center-heartbeat {
+          0% {
+            transform: scale(1);
+          }
+          14% {
+            transform: scale(1.12);
+          }
+          28% {
+            transform: scale(1);
+          }
+          42% {
+            transform: scale(1.08);
+          }
+          70% {
+            transform: scale(1);
+          }
+          100% {
+            transform: scale(1);
           }
         }
 
